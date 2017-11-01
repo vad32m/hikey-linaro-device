@@ -10,4 +10,6 @@
 #
 
 PRODUCT_MAKEFILES := \
-$(LOCAL_DIR)/hikey.mk
+$(LOCAL_DIR)/hikey.mk \
+$(LOCAL_DIR)/hikey32.mk \
+$(LOCAL_DIR)/hikey960.mk

@@ -16,6 +16,7 @@
  * limitations under the License.
  */
 
+#include <cstdlib>
 #include <string.h>
 #include <errno.h>
 #include <pthread.h>
@@ -40,10 +41,10 @@
 #if GRALLOC_ARM_DMA_BUF_MODULE
 #include <linux/ion.h>
 #include <ion/ion.h>
+#include "ion_4.12.h"
 #endif
 
 #define GRALLOC_ALIGN( value, base ) (((value) + ((base) - 1)) & ~((base) - 1))
-
 
 #if GRALLOC_SIMULATE_FAILURES
 #include <cutils/properties.h>
@@ -106,26 +107,46 @@ static int gralloc_alloc_buffer(alloc_device_t *dev, size_t size, int usage, buf
 		int shared_fd;
 		int ret;
 
-		ret = ion_alloc(m->ion_client, size, 0, ION_HEAP_SYSTEM_MASK, 0, &(ion_hnd));
-
-		if (ret != 0)
+		if (m->gralloc_legacy_ion)
 		{
-			AERR("Failed to ion_alloc from ion_client:%d", m->ion_client);
-			return -1;
-		}
+			ret = ion_alloc(m->ion_client, size, 0, ION_HEAP_SYSTEM_MASK, 0, &(ion_hnd));
 
-		ret = ion_share(m->ion_client, ion_hnd, &shared_fd);
-
-		if (ret != 0)
-		{
-			AERR("ion_share( %d ) failed", m->ion_client);
-
-			if (0 != ion_free(m->ion_client, ion_hnd))
+			if (ret != 0)
 			{
-				AERR("ion_free( %d ) failed", m->ion_client);
+				AERR("Failed to ion_alloc from ion_client:%d", m->ion_client);
+				return -1;
 			}
 
-			return -1;
+			ret = ion_share(m->ion_client, ion_hnd, &shared_fd);
+
+			if (ret != 0)
+			{
+				AERR("ion_share( %d ) failed", m->ion_client);
+
+				if (0 != ion_free(m->ion_client, ion_hnd))
+				{
+					AERR("ion_free( %d ) failed", m->ion_client);
+				}
+
+				return -1;
+			}
+
+			// we do not need ion_hnd once we have shared_fd
+			if (0 != ion_free(m->ion_client, ion_hnd))
+			{
+				AWAR("ion_free( %d ) failed", m->ion_client);
+			}
+			ion_hnd = ION_INVALID_HANDLE;
+		}
+		else
+		{
+			ret = ion_alloc_fd(m->ion_client, size, 0, 1 << m->system_heap_id, 0, &(shared_fd));
+
+			if (ret != 0)
+			{
+				AERR("Failed to ion_alloc_fd from ion_client:%d", m->ion_client);
+				return -1;
+			}
 		}
 
 		cpu_ptr = (unsigned char *)mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, shared_fd, 0);
@@ -133,11 +154,6 @@ static int gralloc_alloc_buffer(alloc_device_t *dev, size_t size, int usage, buf
 		if (MAP_FAILED == cpu_ptr)
 		{
 			AERR("ion_map( %d ) failed", m->ion_client);
-
-			if (0 != ion_free(m->ion_client, ion_hnd))
-			{
-				AERR("ion_free( %d ) failed", m->ion_client);
-			}
 
 			close(shared_fd);
 			return -1;
@@ -148,7 +164,6 @@ static int gralloc_alloc_buffer(alloc_device_t *dev, size_t size, int usage, buf
 		if (NULL != hnd)
 		{
 			hnd->share_fd = shared_fd;
-			hnd->ion_hnd = ion_hnd;
 			*pHandle = hnd;
 			return 0;
 		}
@@ -163,13 +178,6 @@ static int gralloc_alloc_buffer(alloc_device_t *dev, size_t size, int usage, buf
 		if (0 != ret)
 		{
 			AERR("munmap failed for base:%p size: %lu", cpu_ptr, (unsigned long)size);
-		}
-
-		ret = ion_free(m->ion_client, ion_hnd);
-
-		if (0 != ret)
-		{
-			AERR("ion_free( %d ) failed", m->ion_client);
 		}
 
 		return -1;
@@ -306,9 +314,10 @@ static int gralloc_alloc_framebuffer_locked(alloc_device_t *dev, size_t size, in
 		vaddr = (void *)((uintptr_t)vaddr + bufferSize);
 	}
 
+	int fbdev_fd = m->framebuffer->shallow_fbdev_fd;
 	// The entire framebuffer memory is already mapped, now create a buffer object for parts of this memory
 	private_handle_t *hnd = new private_handle_t(private_handle_t::PRIV_FLAGS_FRAMEBUFFER, usage, size, vaddr,
-	        0, dup(m->framebuffer->fd), (uintptr_t)vaddr - (uintptr_t) m->framebuffer->base);
+	        0, fbdev_fd, (uintptr_t)vaddr - (uintptr_t) m->framebuffer->base);
 #if GRALLOC_ARM_UMP_MODULE
 	hnd->ump_id = m->framebuffer->ump_id;
 
@@ -330,13 +339,19 @@ static int gralloc_alloc_framebuffer_locked(alloc_device_t *dev, size_t size, in
 #ifdef FBIOGET_DMABUF
 		struct fb_dmabuf_export fb_dma_buf;
 
-		if (ioctl(m->framebuffer->fd, FBIOGET_DMABUF, &fb_dma_buf) == 0)
+		if (ioctl(fbdev_fd, FBIOGET_DMABUF, &fb_dma_buf) == 0)
 		{
 			AINF("framebuffer accessed with dma buf (fd 0x%x)\n", (int)fb_dma_buf.fd);
 			hnd->share_fd = fb_dma_buf.fd;
 		}
 
 #endif
+	}
+
+	// correct numFds/numInts when there is no dmabuf fd
+	if (hnd->share_fd < 0) {
+		hnd->numFds--;
+		hnd->numInts++;
 	}
 #endif
 
@@ -518,7 +533,6 @@ static int alloc_device_free(alloc_device_t *dev, buffer_handle_t handle)
 		const size_t bufferSize = m->finfo.line_length * m->info.yres;
 		int index = ((uintptr_t)hnd->base - (uintptr_t)m->framebuffer->base) / bufferSize;
 		m->bufferMask &= ~(1 << index);
-		close(hnd->fd);
 
 #if GRALLOC_ARM_UMP_MODULE
 
@@ -560,11 +574,6 @@ static int alloc_device_free(alloc_device_t *dev, buffer_handle_t handle)
 
 		close(hnd->share_fd);
 
-		if (0 != ion_free(m->ion_client, hnd->ion_hnd))
-		{
-			AERR("Failed to ion_free( ion_client: %d ion_hnd: %p )", m->ion_client, (void *)(uintptr_t)hnd->ion_hnd);
-		}
-
 		memset((void *)hnd, 0, sizeof(*hnd));
 #else
 		AERR("Can't free dma_buf memory for handle:0x%x. Not supported.", (unsigned int)hnd);
@@ -601,6 +610,54 @@ static int alloc_device_close(struct hw_device_t *device)
 
 	return 0;
 }
+
+#if GRALLOC_ARM_DMA_BUF_MODULE
+static int find_system_heap_id(int ion_client)
+{
+	int i, ret, cnt, system_heap_id = -1;
+	struct ion_heap_data *data;
+
+	ret = ion_query_heap_cnt(ion_client, &cnt);
+
+	if (ret)
+	{
+		AERR("ion count query failed with %s", strerror(errno));
+		return -1;
+	}
+
+	data = (struct ion_heap_data *)malloc(cnt * sizeof(*data));
+	if (!data)
+	{
+		AERR("Error allocating data %s\n", strerror(errno));
+		return -1;
+	}
+
+	ret = ion_query_get_heaps(ion_client, cnt, data);
+	if (ret)
+	{
+		AERR("Error querying heaps from ion %s", strerror(errno));
+	}
+	else
+	{
+		for (i = 0; i < cnt; i++) {
+			struct ion_heap_data *dat = (struct ion_heap_data *)data;
+			if (strcmp(dat[i].name, "ion_system_heap") == 0) {
+				system_heap_id = dat[i].heap_id;
+				break;
+			}
+		}
+
+		if (i > cnt)
+		{
+			AERR("No System Heap Found amongst %d heaps\n", cnt);
+			system_heap_id = -1;
+		}
+	}
+
+	free(data);
+	return system_heap_id;
+}
+#endif
 
 int alloc_device_open(hw_module_t const *module, const char *name, hw_device_t **device)
 {
@@ -646,6 +703,20 @@ int alloc_device_open(hw_module_t const *module, const char *name, hw_device_t *
 		AERR("ion_open failed with %s", strerror(errno));
 		delete dev;
 		return -1;
+	}
+
+	m->gralloc_legacy_ion = ion_is_legacy(m->ion_client);
+
+	if (!m->gralloc_legacy_ion)
+	{
+		m->system_heap_id = find_system_heap_id(m->ion_client);
+		if (m->system_heap_id < 0)
+		{
+			delete dev;
+			ion_close(m->ion_client);
+			m->ion_client = -1;
+			return -1;
+		}
 	}
 
 #endif

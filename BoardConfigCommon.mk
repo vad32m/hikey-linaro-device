@@ -34,6 +34,7 @@ TARGET_USERIMAGES_USE_EXT4 := true
 BOARD_CACHEIMAGE_FILE_SYSTEM_TYPE := ext4
 TARGET_USE_PAN_DISPLAY := true
 
+TARGET_USES_HWC2 := true
 SF_START_GRAPHICS_ALLOCATOR_SERVICE := true
 
 TARGET_AUX_OS_VARIANT_LIST := neonkey argonkey
@@ -46,6 +47,7 @@ DEVICE_MATRIX_FILE := device/linaro/hikey/compatibility_matrix.xml
 
 ifneq ($(TARGET_SENSOR_MEZZANINE),)
 DEVICE_MANIFEST_FILE += device/linaro/hikey/sensorhal/manifest.xml
+DEVICE_MANIFEST_FILE += device/linaro/hikey/vr/manifest.xml
 endif
 
 ifeq ($(HOST_OS), linux)

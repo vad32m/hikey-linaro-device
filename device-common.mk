@@ -58,6 +58,7 @@ PRODUCT_PACKAGES += libGLES_android
 # Graphics HAL
 PRODUCT_PACKAGES += \
     android.hardware.graphics.allocator@2.0-impl \
+    android.hardware.graphics.composer@2.1-impl \
     android.hardware.graphics.mapper@2.0-impl
 
 # Memtrack
@@ -127,6 +128,18 @@ ifeq ($(TARGET_SENSOR_MEZZANINE),neonkey)
 PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.sensor.proximity.xml:system/etc/permissions/android.hardware.sensor.proximity.xml
 endif
+
+# VR HAL
+PRODUCT_COPY_FILES += \
+    frameworks/native/services/vr/virtual_touchpad/idc/vr-virtual-touchpad-1.idc:$(TARGET_COPY_OUT_VENDOR)/usr/idc/vr-virtual-touchpad-1.idc \
+    frameworks/native/data/etc/android.hardware.vr.high_performance.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.vr.high_performance.xml \
+    frameworks/native/data/etc/android.hardware.vr.headtracking-0.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.vr.headtracking.xml
+
+PRODUCT_PACKAGES += \
+    vr.default \
+    android.hardware.vr@1.0-service \
+    android.hardware.vr@1.0-impl
+
 endif
 
 # Use Launcher3

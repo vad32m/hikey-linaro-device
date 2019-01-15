@@ -31,6 +31,10 @@ on fs
     setprop ro.crypto.fuse_sdcard false
 
 on post-fs
+
+    # set RLIMIT_MEMLOCK to 8MB
+    setrlimit 8 8388608 8388608
+
     # For legacy support
     # See storage config details at http://source.android.com/tech/storage/
     # since /storage is mounted on post-fs in init.rc
@@ -49,11 +53,8 @@ on post-fs
     setprop status.battery.level_raw  50
     setprop status.battery.level_scale 9
 
-# Set Display density
-    setprop ro.sf.lcd_density 160
-
 # Set supported opengles version
-    setprop ro.opengles.version 196608
+    setprop ro.hardware.hwcomposer drm
 
 # If an app forces screen rotation, revert it once the apps closes
     setprop persist.demo.rotationlock 1

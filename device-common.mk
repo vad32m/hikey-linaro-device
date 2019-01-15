@@ -14,14 +14,43 @@
 # limitations under the License.
 #
 
+ifneq (,$(filter $(TARGET_PRODUCT),hikey960_tv hikey_tv))
+# Setup TV Build
+USE_OEM_TV_APP := true
+$(call inherit-product, device/google/atv/products/atv_base.mk)
+PRODUCT_CHARACTERISTICS := tv
+PRODUCT_AAPT_PREF_CONFIG := tvdpi
+PRODUCT_IS_ATV := true
+else
 # Adjust the dalvik heap to be appropriate for a tablet.
-$(call inherit-product-if-exists, frameworks/native/build/tablet-10in-xhdpi-2048-dalvik-heap.mk)
+$(call inherit-product, frameworks/native/build/tablet-10in-xhdpi-2048-dalvik-heap.mk)
+endif
 
 # Set vendor kernel path
 PRODUCT_VENDOR_KERNEL_HEADERS := device/linaro/hikey/kernel-headers
 
+# Hikey was first supported from Marshmallow 6.0, API level 23
+# PRODUCT_SHIPPING_API_LEVEL is required from Pie build by the CTS test of
+# CtsOsTestCases android.os.cts.BuildTest#testSdkInt
+# as reported here:
+# https://bugs.linaro.org/show_bug.cgi?id=4068
+# https://source.android.com/setup/start/build-numbers
+# Here we set it to 25 first, because Gatekeeper function
+# needs to be supported when set to 26 or above,
+# which we could not boot successfully with the default implementation
+# enabled yet. Will back to set it to the latest number when we have
+# all necessary features supported.
+PRODUCT_SHIPPING_API_LEVEL := 25
+
 # Set custom settings
 DEVICE_PACKAGE_OVERLAYS := device/linaro/hikey/overlay
+ifneq (,$(filter $(TARGET_PRODUCT),hikey960_tv hikey_tv))
+# Set TV Custom Settings
+DEVICE_PACKAGE_OVERLAYS += device/google/atv/overlay
+endif
+
+#Force navkeys on
+PRODUCT_PROPERTY_OVERRIDES += qemu.hw.mainkeys=0
 
 # Add openssh support for remote debugging and job submission
 PRODUCT_PACKAGES += ssh sftp scp sshd ssh-keygen sshd_config start-ssh
@@ -51,6 +80,7 @@ PRODUCT_PACKAGES += vndk_package
 
 PRODUCT_PACKAGES += \
     android.hardware.drm@1.0-impl \
+    android.hardware.drm@1.0-service \
 
 PRODUCT_PACKAGES += libGLES_android
 
@@ -61,6 +91,11 @@ PRODUCT_PACKAGES += \
     android.hardware.graphics.composer@2.1-impl \
     android.hardware.graphics.composer@2.1-service \
     android.hardware.graphics.mapper@2.0-impl
+
+ifeq ($(HIKEY_USE_DRM_HWCOMPOSER), true)
+  BOARD_USES_DRM_HWCOMPOSER := true
+  PRODUCT_PACKAGES += hwcomposer.drm
+endif
 
 # Memtrack
 PRODUCT_PACKAGES += memtrack.default \
@@ -74,7 +109,9 @@ PRODUCT_PACKAGES += android.hardware.bluetooth@1.0-service.btlinux
 endif
 
 # PowerHAL
-PRODUCT_PACKAGES += android.hardware.power@1.0-impl
+PRODUCT_PACKAGES += \
+	android.hardware.power@1.1-impl \
+	android.hardware.power@1.1-service.hikey-common
 
 #GNSS HAL
 PRODUCT_PACKAGES += \
@@ -139,12 +176,33 @@ PRODUCT_PACKAGES += \
 
 endif
 
+
+ifneq (,$(filter $(TARGET_PRODUCT),hikey960_tv hikey_tv))
+# TV Specific Packages
+PRODUCT_PACKAGES += \
+    TvSettings \
+    LiveTv \
+    google-tv-pairing-protocol \
+    TvProvision \
+    LeanbackSampleApp \
+    TvSampleLeanbackLauncher \
+    TvProvider \
+    SettingsIntelligence \
+    tv_input.default \
+    com.android.media.tv.remoteprovider \
+    InputDevices
+PRODUCT_PROPERTY_OVERRIDES += ro.sf.lcd_density=260
+else
+
 # Use Launcher3QuickStep
 PRODUCT_PACKAGES += Launcher3QuickStep
+PRODUCT_PROPERTY_OVERRIDES += ro.sf.lcd_density=160
+endif
 
 # Copy hardware config file(s)
 PRODUCT_COPY_FILES +=  \
         device/linaro/hikey/etc/permissions/android.hardware.screen.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.screen.xml \
+        device/linaro/hikey/etc/permissions/android.software.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.xml \
         frameworks/native/data/etc/android.software.cts.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.cts.xml \
         frameworks/native/data/etc/android.software.app_widgets.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.app_widgets.xml \
         frameworks/native/data/etc/android.software.backup.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.backup.xml \
@@ -155,7 +213,7 @@ PRODUCT_COPY_FILES +=  \
         frameworks/native/data/etc/android.software.device_admin.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.device_admin.xml
 
 # Include BT modules
-$(call inherit-product-if-exists, device/linaro/hikey/wpan/ti-wpan-products.mk)
+$(call inherit-product, device/linaro/hikey/wpan/ti-wpan-products.mk)
 
 PRODUCT_COPY_FILES += \
         frameworks/native/data/etc/android.hardware.wifi.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.wifi.xml \

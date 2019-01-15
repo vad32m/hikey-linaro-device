@@ -5,8 +5,14 @@ TARGET_PREBUILT_KERNEL := device/linaro/hikey-kernel/Image.gz-dtb-hikey960-$(TAR
 TARGET_PREBUILT_DTB := device/linaro/hikey-kernel/hi3660-hikey960.dtb-$(TARGET_KERNEL_USE)
 
 ifeq ($(TARGET_KERNEL_USE), 4.4)
+  HIKEY_USE_DRM_HWCOMPOSER := false
   HIKEY_USE_LEGACY_TI_BLUETOOTH := true
 else
+  ifeq ($(TARGET_KERNEL_USE), 4.9)
+    HIKEY_USE_DRM_HWCOMPOSER := false
+  else
+    HIKEY_USE_DRM_HWCOMPOSER := true
+  endif
   HIKEY_USE_LEGACY_TI_BLUETOOTH := false
 endif
 
@@ -23,6 +29,8 @@ PRODUCT_VENDOR_VERITY_PARTITION := /dev/block/platform/soc/ff3b0000.ufs/by-name/
 $(call inherit-product, build/target/product/verity.mk)
 PRODUCT_SUPPORTS_BOOT_SIGNER := false
 PRODUCT_SUPPORTS_VERITY_FEC := false
+
+PRODUCT_PROPERTY_OVERRIDES += ro.opengles.version=196608
 
 #
 # Overrides

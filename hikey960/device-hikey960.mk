@@ -18,6 +18,7 @@ PRODUCT_COPY_FILES +=	$(TARGET_PREBUILT_KERNEL):kernel \
 			$(TARGET_PREBUILT_DTB):hi3660-hikey960.dtb
 
 PRODUCT_COPY_FILES +=	$(LOCAL_PATH)/fstab.hikey960:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.hikey960 \
+			device/linaro/hikey/fstab.ramdisk:$(TARGET_COPY_OUT_RAMDISK)/fstab.hikey960 \
 			device/linaro/hikey/init.common.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.hikey960.rc \
 			device/linaro/hikey/init.hikey960.power.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.hikey960.power.rc \
 			device/linaro/hikey/init.common.usb.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.hikey960.usb.rc \
@@ -86,4 +87,9 @@ $(warning TARGET_HISI_CODEC_VERSION ($(TARGET_HISI_CODEC_VERSION)) does not matc
 $(warning Please download new binaries here:)
 $(warning    https://dl.google.com/dl/android/aosp/hisilicon-hikey960-OPR-3c243263.tgz )
 $(warning And extract in the ANDROID_TOP_DIR)
+endif
+
+ifneq ($(TARGET_NO_RECOVERY),true)
+PRODUCT_COPY_FILES += \
+	device/linaro/hikey/init.recovery.common.rc:recovery/root/init.recovery.hikey960.rc
 endif

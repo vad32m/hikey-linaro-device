@@ -17,6 +17,7 @@
 PRODUCT_COPY_FILES +=   $(TARGET_PREBUILT_KERNEL):kernel \
                         $(TARGET_PREBUILT_DTB):hi6220-hikey.dtb \
 			$(LOCAL_PATH)/$(TARGET_FSTAB):$(TARGET_COPY_OUT_VENDOR)/etc/fstab.hikey \
+			device/linaro/hikey/fstab.ramdisk:$(TARGET_COPY_OUT_RAMDISK)/fstab.hikey \
 			device/linaro/hikey/init.common.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.hikey.rc \
 			device/linaro/hikey/init.hikey.power.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.hikey.power.rc \
 			device/linaro/hikey/init.common.usb.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.hikey.usb.rc \
@@ -52,3 +53,8 @@ PRODUCT_PACKAGES += sensors.hikey
 
 # Include mali blobs from ARM
 PRODUCT_PACKAGES += libGLES_mali.so END_USER_LICENCE_AGREEMENT.txt
+
+ifneq ($(TARGET_NO_RECOVERY),true)
+PRODUCT_COPY_FILES += \
+	device/linaro/hikey/init.recovery.common.rc:recovery/root/init.recovery.hikey.rc
+endif

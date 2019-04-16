@@ -81,6 +81,7 @@ PRODUCT_PACKAGES += vndk_package
 PRODUCT_PACKAGES += \
     android.hardware.drm@1.0-impl \
     android.hardware.drm@1.0-service \
+    android.hardware.bluetooth.audio@2.0-impl
 
 PRODUCT_PACKAGES += libGLES_android
 
@@ -91,11 +92,6 @@ PRODUCT_PACKAGES += \
     android.hardware.graphics.composer@2.1-impl \
     android.hardware.graphics.composer@2.1-service \
     android.hardware.graphics.mapper@2.0-impl
-
-ifeq ($(HIKEY_USE_DRM_HWCOMPOSER), true)
-  BOARD_USES_DRM_HWCOMPOSER := true
-  PRODUCT_PACKAGES += hwcomposer.drm
-endif
 
 # Memtrack
 PRODUCT_PACKAGES += memtrack.default \
@@ -238,6 +234,9 @@ PRODUCT_COPY_FILES += \
 PRODUCT_COPY_FILES += \
         device/linaro/hikey/etc/media_codecs.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs.xml \
         frameworks/av/media/libstagefright/data/media_codecs_google_audio.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs_google_audio.xml
+
+PRODUCT_COPY_FILES += \
+    device/linaro/hikey/init.common.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.common.rc \
 
 PRODUCT_PACKAGES += \
     android.hardware.renderscript@1.0.vndk-sp\

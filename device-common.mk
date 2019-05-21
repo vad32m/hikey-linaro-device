@@ -49,6 +49,12 @@ ifneq (,$(filter $(TARGET_PRODUCT),hikey960_tv hikey_tv))
 DEVICE_PACKAGE_OVERLAYS += device/google/atv/overlay
 endif
 
+#avoid usb crash
+PRODUCT_PRODUCT_PROPERTIES += \
+	persist.adb.nonblocking_ffs=0 \
+	ro.adb.nonblocking_ffs=0 \
+
+
 #Force navkeys on
 PRODUCT_PROPERTY_OVERRIDES += qemu.hw.mainkeys=0
 
@@ -70,9 +76,9 @@ PRODUCT_PACKAGES += audio.a2dp.default \
 		    tinyplay
 
 PRODUCT_PACKAGES += \
+    android.hardware.audio@4.0-impl:32 \
+    android.hardware.audio.effect@4.0-impl:32 \
     android.hardware.audio@2.0-service \
-    android.hardware.audio@2.0-impl \
-    android.hardware.audio.effect@2.0-impl \
     android.hardware.broadcastradio@1.0-impl \
     android.hardware.soundtrigger@2.0-impl
 
